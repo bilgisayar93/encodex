@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="fa">
+<head>
+  <meta charset="UTF-8">
+  <title>Encoding / Decoding Playground — Columns (no Base64)</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="wrap">
+    <div class="panel left-panel">
+      <div class="header">
+        <div class="title">⚡ Encoding / Decoding Playground</div>
+      </div>
+
+      <label class="label" for="inputText">Input String</label>
+      <textarea id="inputText" placeholder='input'></textarea>
+
+      <div class="row">
+     
+        <select id="mode">
+          <option value="html-cr">HTML Character Reference</option>
+          <option value="html-hex">HTML Hex</option>
+          <option value="html-dec">HTML Dec</option>
+          <option value="unicode">Unicode</option>
+          <option value="url">URL</option>
+        </select>
+      </div>
+
+      <div class="buttons">
+        <button class="btn-encode" onclick="doEncode()">🔐 Encode</button>
+        <button class="btn-decode" onclick="doDecode()">🔓 Decode</button>
+        <button class="btn-reverse" onclick="reverseIO()">🔄 Reverse</button>
+        <button class="btn-secondary" onclick="copyResult()">📋 Copy</button>
+      </div>
+
+      <div id="result" class="output"></div>
+
+      <div class="footer-note small">Click on the ASCII table (right) to insert characters. Input characters are highlighted.</div>
+    </div>
+
+    <div class="panel ascii-panel">
+      <h3>ASCII Table (0–127)</h3>
+      <table class="ascii-table" id="asciiTable">
+        <thead>
+          <input type="text" id="asciiSearch" placeholder="🔎 Search..." class="search-box">
+          <tr><th>Dec</th><th>Hex</th><th>Char</th><th>Meaning</th></tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </div>
+
+<script>
+
+// --- Encoding/Decoding functions ---
+function detectEncoding(str){
+  if(/%[0-9A-F]{2}/i.test(str)) return "url";
+  if(/&#x[0-9A-F]+;/i.test(str) || /&#\d+;/.test(str) || /&[a-z]+;/i.test(str)) return "html-cr";
+  if(/\\u[0-9a-fA-F]{4}/.test(str)) return "unicode";
+  return null;
+}
+
+
+function encodeHtmlCR(str) {
+  const named = {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&apos;',' ':'&nbsp;'};
+  return str.replace(/./g,ch=>named[ch]??ch);
+}
+
+function encodeHtmlHex(str) {
+  return Array.from(str).map(ch=>'&#x'+ch.codePointAt(0).toString(16)+';').join('');
+}
+
+function encodeHtmlDec(str) {
+  return Array.from(str).map(ch=>'&#'+ch.codePointAt(0)+';').join('');
+}
+
+function decodeHtml(str){
+  return str
+    .replace(/&nbsp;/g,' ')
+    .replace(/&amp;/g,'&')
+    .replace(/&lt;/g,'<')
+    .replace(/&gt;/g,'>')
+    .replace(/&quot;/g,'"')
+    .replace(/&apos;/g,"'")
+    .replace(/&#x([0-9a-fA-F]+);/g,(m,h)=>String.fromCodePoint(parseInt(h,16)))
+    .replace(/&#(\d+);/g,(m,d)=>String.fromCodePoint(parseInt(d,10)));
+}
+
+function doEncode() {
+  const input = document.getElementById('inputText').value;
+  let mode = document.getElementById('mode').value;
+
+  if(!input){
+    document.getElementById('result').textContent="⚠️ Empty input.";
+    return;
+  }
+
+  // ✅ Auto detect before encode
+  const detected = detectEncoding(input);
+  if(detected && detected !== mode){
+    mode = detected;
+    document.getElementById('mode').value = detected;
+  }
+
+  let result="";
+  if(mode==='html-cr') result = encodeHtmlCR(input);
+  else if(mode==='html-hex') result = encodeHtmlHex(input);
+  else if(mode==='html-dec') result = encodeHtmlDec(input);
+  else if(mode==='unicode') result = Array.from(input).map(ch=>"\\u"+ch.codePointAt(0).toString(16).padStart(4,'0')).join('');
+  else if(mode==='url') result = encodeURIComponent(input);
+  else result = input;
+
+  document.getElementById('result').textContent = result;
+}
+
+function doDecode() {
+  const input = document.getElementById('inputText').value;
+  let mode = document.getElementById('mode').value;
+
+  if(!input){
+    document.getElementById('result').textContent="⚠️ Empty input.";
+    return;
+  }
+
+  // ✅ Auto detect before decode
+  const detected = detectEncoding(input);
+  if(detected && detected !== mode){
+    mode = detected;
+    document.getElementById('mode').value = detected;
+  }
+
+  let result=input;
+
+  if(mode==='html-cr' || mode==='html-hex' || mode==='html-dec'){
+    result = decodeHtml(result);
+  }
+  if(mode==='unicode'){
+    result = input.replace(/\\u([0-9a-fA-F]{4})/g,(m,h)=>String.fromCharCode(parseInt(h,16)));
+  }
+  if(mode==='url'){
+    result = decodeURIComponent(result);
+  }
+
+  document.getElementById('result').textContent = result;
+}
+
+
+// --- ASCII Table ---
+const asciiNames = {
+  0: 'NUL',1:'SOH',2:'STX',3:'ETX',4:'EOT',5:'ENQ',6:'ACK',7:'BEL',8:'BS',9:'TAB',10:'LF',11:'VT',12:'FF',13:'CR',14:'SO',15:'SI',
+  16:'DLE',17:'DC1',18:'DC2',19:'DC3',20:'DC4',21:'NAK',22:'SYN',23:'ETB',24:'CAN',25:'EM',26:'SUB',27:'ESC',28:'FS',29:'GS',30:'RS',31:'US',127:'DEL'
+};
+
+function makeAsciiTable() {
+  const tbody = document.querySelector('#asciiTable tbody');
+  tbody.innerHTML = '';
+  for (let i = 0; i < 128; i++) {
+    const tr = document.createElement('tr');
+    tr.className = 'ascii-row';
+    tr.dataset.code = i;
+    const hex = i.toString(16).toUpperCase().padStart(2, '0');
+    const ch = (i >= 32 && i <= 126) ? String.fromCharCode(i) : (asciiNames[i] || '');
+    const meaning = (i >= 32 && i <= 126) ? '' : (asciiNames[i] || '');
+    tr.innerHTML = `<td>${i}</td><td>0x${hex}</td><td class="ascii-char">${escapeHtml(ch)}</td><td class="small">${escapeHtml(meaning)}</td>`;
+    tr.addEventListener('click', () => {
+      const inputBox = document.getElementById('inputText');
+      const pos = inputBox.selectionStart || 0;
+      const before = inputBox.value.slice(0, pos);
+      const after = inputBox.value.slice(pos);
+      if (i >= 32 && i <= 126) {
+        inputBox.value = before + String.fromCharCode(i) + after;
+      } else {
+        inputBox.value = before + '[' + (asciiNames[i] || '') + ']' + after;
+      }
+      inputBox.focus();
+      highlightAsciiChars(inputBox.value);
+    });
+    tbody.appendChild(tr);
+  }
+}
+
+function escapeHtml(s) {
+  return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+function highlightAsciiChars(str) {
+  document.querySelectorAll('.ascii-row').forEach(r => r.classList.remove('ascii-highlight'));
+  if (!str) return;
+  for (let ch of str) {
+    const code = ch.charCodeAt(0);
+    const row = document.querySelector('.ascii-row[data-code="' + code + '"]');
+    if (row) row.classList.add('ascii-highlight');
+  }
+}
+
+function copyResult() {
+  const txt = document.getElementById('result').textContent;
+  navigator.clipboard.writeText(txt)
+    .then(() => alert('Copied!'))
+    .catch(() => alert('Copy failed.'));
+}
+
+makeAsciiTable();
+
+document.getElementById('asciiSearch').addEventListener('input', function () {
+  const query = this.value.toLowerCase();
+  document.querySelectorAll('#asciiTable tbody tr').forEach(tr => {
+    const text = tr.textContent.toLowerCase();
+    tr.style.display = text.includes(query) ? '' : 'none';
+  });
+});
+
+document.getElementById('inputText').addEventListener('input', (e) => {
+  const value = e.target.value;
+  const detected = detectEncoding(value);
+  if (detected) document.getElementById('mode').value = detected;
+  highlightAsciiChars(value);
+});
+
+
+function reverseIO() {
+  const inputBox = document.getElementById('inputText');
+  const resultBox = document.getElementById('result');
+
+  const temp = inputBox.value;
+  inputBox.value = resultBox.textContent;
+  resultBox.textContent = temp;
+
+  highlightAsciiChars(inputBox.value);
+}
+
+
+
+</script>
+
+</body>
+</html>
