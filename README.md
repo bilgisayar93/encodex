@@ -31,6 +31,6 @@ It helps students and developers understand how characters are represented in di
 
 ## Live Demo (GitHub Pages)
 
-After enabling GitHub Pages on this repository:
+https://bilgisayar93.github.io/encodex/
 
 
